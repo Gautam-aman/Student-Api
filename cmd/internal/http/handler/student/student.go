@@ -9,19 +9,20 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/gautam-aman/student-api/cmd/internal/storage"
 	"github.com/gautam-aman/student-api/cmd/internal/types"
 	"github.com/gautam-aman/student-api/cmd/internal/utils/response"
 	"github.com/go-playground/validator/v10"
 )
 
-func New() http.HandlerFunc {
+func New(storage storage.Storage) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		slog.Info("Creating a student")
 
 		var student types.Student
 
-		err := json.NewDecoder(r.Body).Decode(student)
+		err := json.NewDecoder(r.Body).Decode(&student)
 
 		if errors.Is(err, io.EOF) {
 			response.WriteJson(w, http.StatusBadRequest, response.GeneralError(fmt.Errorf("empty body")))
@@ -45,12 +46,12 @@ func New() http.HandlerFunc {
 			student.Age,
 		)
 
-		slog.Info("user created successfully", slog.String("userId", fmt.Sprint(lastId)))
-
 		if err != nil {
-			response.WriteJson(w, http.StatusInternalServerError, err)
+			response.WriteJson(w, http.StatusInternalServerError, response.GeneralError(err))
 			return
 		}
+
+		slog.Info("user created successfully", slog.String("userId", fmt.Sprint(lastId)))
 
 		response.WriteJson(w, http.StatusCreated, map[string]int64{"id": lastId})
 	}
@@ -77,5 +78,19 @@ func GetById(storage storage.Storage) http.HandlerFunc {
 		}
 
 		response.WriteJson(w, http.StatusOK, student)
+	}
+}
+
+func GetList(storage storage.Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		slog.Info("getting all students")
+
+		students, err := storage.GetStudents()
+		if err != nil {
+			response.WriteJson(w, http.StatusInternalServerError, response.GeneralError(err))
+			return
+		}
+
+		response.WriteJson(w, http.StatusOK, students)
 	}
 }
