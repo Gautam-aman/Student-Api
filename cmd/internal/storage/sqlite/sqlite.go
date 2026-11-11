@@ -3,9 +3,12 @@ package sqlite
 import (
 	"database/sql"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/gautam-aman/student-api/cmd/internal/config"
 	"github.com/gautam-aman/student-api/cmd/internal/types"
+	_ "modernc.org/sqlite"
 )
 
 type Sqlite struct {
@@ -13,7 +16,11 @@ type Sqlite struct {
 }
 
 func New(cfg *config.Config) (*Sqlite, error) {
-	db, err := sql.Open("sqlite3", cfg.Storage_path)
+	if err := os.MkdirAll(filepath.Dir(cfg.Storage_path), 0755); err != nil {
+		return nil, err
+	}
+
+	db, err := sql.Open("sqlite", cfg.Storage_path)
 
 	if err != nil {
 		return nil, err
@@ -69,7 +76,7 @@ func (s *Sqlite) GetStudentById(id int64) (types.Student, error) {
 	err = stmt.QueryRow(id).Scan(&student.Id, &student.Name, &student.Email, &student.Age)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return types.Student{}, fmt.Errorf("no student found with id %s", fmt.Sprint(id))
+			return types.Student{}, err
 		}
 		return types.Student{}, fmt.Errorf("query error: %w", err)
 	}
@@ -93,7 +100,7 @@ func (s *Sqlite) GetStudents() ([]types.Student, error) {
 
 	defer rows.Close()
 
-	var students []types.Student
+	students := make([]types.Student, 0)
 
 	for rows.Next() {
 		var student types.Student
@@ -104,6 +111,10 @@ func (s *Sqlite) GetStudents() ([]types.Student, error) {
 		}
 
 		students = append(students, student)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return students, nil

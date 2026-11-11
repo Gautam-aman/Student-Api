@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"log/slog"
 	"net/http"
@@ -22,6 +23,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer storage.Db.Close()
 
 	slog.Info("storage initialized", slog.String("env", cfg.Env), slog.String("version", "1.0.0"))
 
@@ -36,15 +38,15 @@ func main() {
 		Handler: router,
 	}
 
-	slog.Info("server started", slog.String("address", cfg.Addr))
+	slog.Info("server started", slog.String("address", cfg.Address))
 
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
 		err := server.ListenAndServe()
-		if err != nil {
-			log.Fatal("failed to start server")
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("failed to start server: %s", err.Error())
 		}
 	}()
 

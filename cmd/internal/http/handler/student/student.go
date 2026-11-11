@@ -1,6 +1,7 @@
 package student
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -35,8 +36,12 @@ func New(storage storage.Storage) http.HandlerFunc {
 		}
 
 		if err := validator.New().Struct(student); err != nil {
-			validateErrs := err.(validator.ValidationErrors)
-			response.WriteJson(w, http.StatusBadRequest, response.ValidationError(validateErrs))
+			var validateErrs validator.ValidationErrors
+			if errors.As(err, &validateErrs) {
+				response.WriteJson(w, http.StatusBadRequest, response.ValidationError(validateErrs))
+				return
+			}
+			response.WriteJson(w, http.StatusBadRequest, response.GeneralError(err))
 			return
 		}
 
@@ -72,6 +77,10 @@ func GetById(storage storage.Storage) http.HandlerFunc {
 		student, err := storage.GetStudentById(intId)
 
 		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				response.WriteJson(w, http.StatusNotFound, response.GeneralError(fmt.Errorf("student not found with id: %d", intId)))
+				return
+			}
 			slog.Error("error getting user", slog.String("id", id))
 			response.WriteJson(w, http.StatusInternalServerError, response.GeneralError(err))
 			return

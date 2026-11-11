@@ -22,15 +22,15 @@ func MustLoad() *Config {
 
 	var ConfigPath string
 
-	ConfigPath = os.Getenv("CONFIG_PATH")
+	flag.StringVar(&ConfigPath, "config", "", "path to config file")
+	flag.Parse()
 
 	if ConfigPath == "" {
-		flags := flag.String("config", "", "path to config is missing")
-		flag.Parse()
-		ConfigPath = *flags
+		ConfigPath = os.Getenv("CONFIG_PATH")
 	}
+
 	if ConfigPath == "" {
-		log.Fatal("Missing config path")
+		log.Fatal("Missing config path. Provide -config flag or set CONFIG_PATH environment variable")
 	}
 
 	if _, err := os.Stat(ConfigPath); os.IsNotExist(err) {
